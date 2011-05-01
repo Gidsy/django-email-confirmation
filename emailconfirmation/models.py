@@ -12,6 +12,8 @@ from django.utils.translation import gettext_lazy as _
 
 from emailconfirmation.signals import email_confirmed
 from emailconfirmation.utils import get_send_mail
+from templated_emails.utils import send_templated_email
+
 send_mail = get_send_mail()
 
 # this code based in-part on django-registration
@@ -108,14 +110,10 @@ class EmailConfirmationManager(models.Manager):
             "current_site": current_site,
             "confirmation_key": confirmation_key,
         }
-        subject = render_to_string(
-            "emailconfirmation/email_confirmation_subject.txt", context)
-        # remove superfluous line breaks
-        subject = "".join(subject.splitlines())
-        message = render_to_string(
-            "emailconfirmation/email_confirmation_message.txt", context)
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL,
-                  [email_address.email], priority="high")
+        
+        send_templated_email([email_address.user], "emails/emailconfirmation",
+                                context)
+        
         return self.create(
             email_address=email_address,
             sent=datetime.now(),
