@@ -17,7 +17,7 @@ def confirm_email(request, confirmation_key):
             messages.warning(request, _("The email you confirmed does not belong to the account you are signed in with."))
                 
     if getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_TO_PROFILE", False):
-        return HttpResponseRedirect(email_address.user.get_absolute_url)
+        return HttpResponseRedirect(email_address.user.get_absolute_url())
                 
     next = getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_URL", False)
     if next:
