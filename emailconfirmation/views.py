@@ -9,23 +9,37 @@ from django.utils.translation import ugettext as _
 def confirm_email(request, confirmation_key):
     confirmation_key = confirmation_key.lower()
     email_address = EmailConfirmation.objects.confirm_email(confirmation_key)
+    
+    if not email_address: #if there is no email then its prob expired
+        try:
+            confirmation = EmailConfirmation.objects.get(confirmation_key=\
+                                                         confirmation_key)
+            if confirmation.key_expired():
+                EmailConfirmation.objects.send_confirmation(confirmation.email_address)
+                EmailConfirmation.objects.delete_expired_confirmations()
+                return render_to_response("emailconfirmation/resent_confirmation.html", {
+                }, context_instance=RequestContext(request))
+        except EmailConfirmation.DoesNotExist:
+            # if not then it was the wrong, code. the view takes care of that
+            pass
             
-    # if user is logged in check if the confirmed email is attached to his account
-    # notify him if not
-    if request.user.is_authenticated():
-        if request.user != email_address.user:
-            messages.warning(request, _("The email you confirmed does not belong \
-                                        to the account you are signed in with."))
-                
-    if getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_TO_PROFILE", False):
-        return HttpResponseRedirect(email_address.user.get_absolute_url())
-                
-    next = getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_URL", False)
-    if next:
-        messages.warning(request, \
-                     _("You successfully confirmed your email address %(email)s")\
-                                                 %{'email':email_address.email})
-        return HttpResponseRedirect(next)
+    else:
+        # if user is logged in check if the confirmed email is attached to his account
+        # notify him if not
+        if request.user.is_authenticated():
+            if request.user != email_address.user:
+                messages.warning(request, _("The email you confirmed does not belong \
+                                            to the account you are signed in with."))
+                    
+        if getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_TO_PROFILE", False):
+            return HttpResponseRedirect(email_address.user.get_absolute_url())
+                    
+        next = getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_URL", False)
+        if next:
+            messages.warning(request, \
+                         _("You successfully confirmed your email address %(email)s")\
+                                                     %{'email':email_address.email})
+            return HttpResponseRedirect(next)
         
     return render_to_response("emailconfirmation/confirm_email.html", {
         "email_address": email_address,

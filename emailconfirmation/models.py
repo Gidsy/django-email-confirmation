@@ -90,6 +90,7 @@ class EmailConfirmationManager(models.Manager):
             email_address.save()
             email_confirmed.send(sender=self.model, email_address=email_address)
             return email_address
+        
 
     def send_confirmation(self, email_address):
         salt = sha_constructor(str(random())).hexdigest()[:5]
