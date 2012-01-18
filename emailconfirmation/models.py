@@ -7,7 +7,11 @@ from django.contrib.sites.models import Site
 from django.contrib.auth.models import User
 from django.utils.hashcompat import sha_constructor
 from django.utils.translation import gettext_lazy as _
-from django.utils.timezone import now
+
+try:
+    from django.utils.timezone import now
+except ImportError:
+    now = datetime.now
 
 from emailconfirmation.signals import email_confirmed
 from emailconfirmation.utils import get_send_mail
@@ -110,13 +114,13 @@ class EmailConfirmationManager(models.Manager):
             "current_site": current_site,
             "confirmation_key": confirmation_key,
         }
-        
+
         send_templated_email([email_address.user], "emails/emailconfirmation",
                                 context)
-        
+
         return self.create(
             email_address=email_address,
-            sent=datetime.now(),
+            sent=now(),
             confirmation_key=confirmation_key)
 
     def delete_expired_confirmations(self):
