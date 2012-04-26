@@ -5,45 +5,61 @@ from emailconfirmation.models import EmailConfirmation
 from django.conf import settings
 from django.contrib import messages
 from django.utils.translation import ugettext as _
+from django.core.urlresolvers import reverse
+
 
 def confirm_email(request, confirmation_key):
     confirmation_key = confirmation_key.lower()
     email_address = EmailConfirmation.objects.confirm_email(confirmation_key)
-    
-    if not email_address: #if there is no email then its prob expired
+    next_url = reverse('acct_general_settings')
+    login_url = reverse('login')
+
+    #if there is no email then its prob expired
+    if not email_address: 
         try:
-            confirmation = EmailConfirmation.objects.get(confirmation_key=\
-                                                         confirmation_key)
-            if confirmation.key_expired():
-                EmailConfirmation.objects.send_confirmation(confirmation.email_address)
-                EmailConfirmation.objects.delete_expired_confirmations()
-                return render_to_response("emailconfirmation/resent_confirmation.html", {
-                }, context_instance=RequestContext(request))
+            # if we can find a expired email confirmation then send it again and return error message
+            confirmation = EmailConfirmation.objects.get(confirmation_key=confirmation_key)
+            EmailConfirmation.objects.send_confirmation(confirmation.email_address)
+            EmailConfirmation.objects.delete_expired_confirmations()
+
+            messages.warning(request, _("Whoops, that link doesn't seem to be working anymore!"))
+            messages.success(request, _("Don't worry, we have sent you a new email. Please check" 
+                "your email account and use the new confirmation key."))
+            if request.user.is_authenticated():
+                # if user is logged in we want to show the error message on account page
+                return HttpResponseRedirect(next_url)
+            else:
+                import pdb; pdb.set_trace()
+                # otherwise we display the error on the login page, prefill the email
+                return HttpResponseRedirect("%s?email=%s&next=%s" % (login_url, 
+                    confirmation.email_address.user.email, next_url))
+
         except EmailConfirmation.DoesNotExist:
             # if not then it was the wrong, code. the view takes care of that
-            pass
-            
+            if request.user.is_authenticated():
+                # if user is logged in we want to show the error message on account page
+                # we don't want to resend the confirmation since we did not find an expired one
+                messages.warning(request, _("Whoops, that link doesn't work anymore! Re-send the " 
+                    "confirmation email by logging in with the corresponding account."))
+                return HttpResponseRedirect(next_url)
+            else:
+                # otherwise we display the error on the login page, in this case we can't fill the email
+                messages.warning(request, _("Whoops, that link doesn't seem to exist!  Please login " 
+                    "and re-send the confirmation email."))
+                return HttpResponseRedirect("%s?next=%s" % (login_url, next_url))
+
+    # the email was confirmed, now it depends if user is logged in or not and if it was of a different user
+    if request.user.is_authenticated():
+        if request.user == email_address.user:
+            # success, just display message on account page
+            messages.success(request, _("Thanks a lot! You succesfully confirmed your email address."))
+            return HttpResponseRedirect(next_url)
+        else:
+            # success, but also display a warning telling the user about the different account
+            messages.warning(request, _("The email you confirmed does not belong to the account you are signed in with."))
+            messages.success(request, _("Thanks a lot! You succesfully confirmed the email address."))
+            return HttpResponseRedirect(next_url)
     else:
-        # if user is logged in check if the confirmed email is attached to his account
-        # notify him if not
-        if request.user.is_authenticated():
-            if request.user != email_address.user:
-                messages.warning(request, _("The email you confirmed does not belong \
-                                            to the account you are signed in with."))
-        
-        redirect_to_profile = getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_TO_PROFILE", False)
-        next = getattr(settings, "EMAIL_CONFIRMATION_REDIRECT_URL", False)
-        
-        if next or redirect_to_profile:
-            messages.success(request, \
-                         _("You successfully confirmed your email address %(email)s")\
-                                                     %{'email':email_address.email})
-            if redirect_to_profile:
-                return HttpResponseRedirect(email_address.user.get_absolute_url())
-                        
-            if next:
-                return HttpResponseRedirect(next)
-        
-    return render_to_response("emailconfirmation/confirm_email.html", {
-        "email_address": email_address,
-    }, context_instance=RequestContext(request))
+        # if user is logged out we go to login page and display success message
+        messages.success(request, _("Thanks a lot! You succesfully confirmed your email address."))
+        return HttpResponseRedirect("%s?email=%s&next=%s" % (login_url, email_address.user.email, next_url))
