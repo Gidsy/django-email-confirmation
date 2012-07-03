@@ -54,7 +54,7 @@ def confirm_email(request, confirmation_key):
     if request.user.is_authenticated():
         if request.user == email_address.user:
             # success, just display message on account page
-            messages.success(request, _("Thanks a lot! You succesfully confirmed your email address."))
+            messages.success(request, _("Thanks a lot, you've successfully confirmed your email address. Have fun!"))
             return HttpResponseRedirect(next_url)
         else:
             # success, but also display a warning telling the user about the different account
