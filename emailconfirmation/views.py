@@ -1,6 +1,7 @@
 from django.http import HttpResponseRedirect
 from emailconfirmation.models import EmailConfirmation
 from django.contrib import messages
+from django.conf import settings
 from django.utils.translation import ugettext as _
 from django.core.urlresolvers import reverse
 
@@ -8,7 +9,12 @@ from django.core.urlresolvers import reverse
 def confirm_email(request, confirmation_key):
     confirmation_key = confirmation_key.lower()
     email_address = EmailConfirmation.objects.confirm_email(confirmation_key)
-    next_url = reverse('acct_general_settings')
+
+    if hasattr(settings, "EMAIL_CONFIRM_REDIRECT_URL"):
+        next_url = reverse(settings.EMAIL_CONFIRM_REDIRECT_URL)
+    else:
+        next_url = reverse('acct_general_settings')
+
     login_url = reverse('login')
 
     #if there is no email then its prob expired
