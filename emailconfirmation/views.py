@@ -1,8 +1,5 @@
-from django.shortcuts import render_to_response
-from django.template import RequestContext
 from django.http import HttpResponseRedirect
 from emailconfirmation.models import EmailConfirmation
-from django.conf import settings
 from django.contrib import messages
 from django.utils.translation import ugettext as _
 from django.core.urlresolvers import reverse
@@ -15,7 +12,7 @@ def confirm_email(request, confirmation_key):
     login_url = reverse('login')
 
     #if there is no email then its prob expired
-    if not email_address: 
+    if not email_address:
         try:
             # if we can find a expired email confirmation then send it again and return error message
             confirmation = EmailConfirmation.objects.get(confirmation_key=confirmation_key)
@@ -23,15 +20,14 @@ def confirm_email(request, confirmation_key):
             EmailConfirmation.objects.delete_expired_confirmations()
 
             messages.warning(request, _("Whoops, that link doesn't seem to be working anymore!"))
-            messages.success(request, _("Don't worry, we have sent you a new email. Please check" 
+            messages.success(request, _("Don't worry, we have sent you a new email. Please check"
                 "your email account and use the new confirmation key."))
             if request.user.is_authenticated():
                 # if user is logged in we want to show the error message on account page
                 return HttpResponseRedirect(next_url)
             else:
-                import pdb; pdb.set_trace()
                 # otherwise we display the error on the login page, prefill the email
-                return HttpResponseRedirect("%s?email=%s&next=%s" % (login_url, 
+                return HttpResponseRedirect("%s?email=%s&next=%s" % (login_url,
                     confirmation.email_address.user.email, next_url))
 
         except EmailConfirmation.DoesNotExist:
@@ -39,12 +35,12 @@ def confirm_email(request, confirmation_key):
             if request.user.is_authenticated():
                 # if user is logged in we want to show the error message on account page
                 # we don't want to resend the confirmation since we did not find an expired one
-                messages.warning(request, _("Whoops, that link doesn't work anymore! Re-send the " 
+                messages.warning(request, _("Whoops, that link doesn't work anymore! Re-send the "
                     "confirmation email by logging in with the corresponding account."))
                 return HttpResponseRedirect(next_url)
             else:
                 # otherwise we display the error on the login page, in this case we can't fill the email
-                messages.warning(request, _("Whoops, that link doesn't seem to exist!  Please login " 
+                messages.warning(request, _("Whoops, that link doesn't seem to exist!  Please login "
                     "and re-send the confirmation email."))
                 return HttpResponseRedirect("%s?next=%s" % (login_url, next_url))
 
